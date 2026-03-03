@@ -8,6 +8,7 @@ from .assets import register_assets_tools
 from .changes import register_changes_tools
 from .misc import register_misc_tools
 from .products import register_products_tools
+from .projects import register_projects_tools
 from .requesters import register_requesters_tools
 from .solutions import register_solutions_tools
 from .tickets import register_tickets_tools
@@ -22,6 +23,7 @@ SCOPE_REGISTRY: dict[str, callable] = {
     "requesters": register_requesters_tools,
     "solutions": register_solutions_tools,
     "products": register_products_tools,
+    "projects": register_projects_tools,
     "misc": register_misc_tools,
 }
 
@@ -32,6 +34,7 @@ __all__ = [
     "register_changes_tools",
     "register_misc_tools",
     "register_products_tools",
+    "register_projects_tools",
     "register_requesters_tools",
     "register_solutions_tools",
     "register_tickets_tools",

@@ -93,6 +93,25 @@ class UnassignedForOptions(str, Enum):
     TWO_DAYS = "2d"
     THREE_DAYS = "3d"
 
+class ProjectStatus(IntEnum):
+    YET_TO_START = 1
+    IN_PROGRESS = 2
+    COMPLETED = 3
+
+class ProjectPriority(IntEnum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    URGENT = 4
+
+class ProjectType(IntEnum):
+    SOFTWARE = 0
+    BUSINESS = 1
+
+class ProjectVisibility(IntEnum):
+    PRIVATE = 0
+    PUBLIC = 1
+
 # All available scopes for --scope flag
 AVAILABLE_SCOPES = [
     "tickets",
@@ -103,6 +122,7 @@ AVAILABLE_SCOPES = [
     "groups",
     "solutions",
     "products",
+    "projects",
     "service_catalog",
     "canned_responses",
     "workspaces",
