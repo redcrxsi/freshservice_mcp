@@ -49,8 +49,9 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
         custom_fields: Optional[Dict[str, Any]] = None,
         # members
         member_ids: Optional[List[int]] = None,
-        # associations
-        associations: Optional[List[Dict[str, Any]]] = None,
+        # associations — use module_name path pattern per API docs
+        module_name: Optional[str] = None,
+        association_ids: Optional[List[int]] = None,
         association_id: Optional[int] = None,
         # attachments
         attachment_id: Optional[int] = None,
@@ -80,8 +81,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             sprint_duration: Sprint duration in days
             custom_fields: Custom fields dict
             member_ids: List of agent IDs (add_members)
-            associations: List of association dicts (create_association)
-            association_id: Association ID (delete_association)
+            module_name: Association module — one of 'tickets', 'changes', 'problems',
+                         'assets', 'releases' (create/list/delete_association)
+            association_ids: List of IDs to associate (create_association)
+            association_id: Single association ID to remove (delete_association)
             attachment_id: Attachment ID (delete_attachment)
             page: Page number
             per_page: Items per page 1-100
@@ -91,7 +94,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
         # ---------- get_fields ----------
         if action == "get_fields":
             try:
-                resp = await api_get("pm/projects/fields")
+                resp = await api_get("pm/project-fields")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -100,7 +103,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
         # ---------- get_templates ----------
         if action == "get_templates":
             try:
-                resp = await api_get("pm/project-templates")
+                resp = await api_get("pm/project_templates")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -214,11 +217,11 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             if not project_id:
                 return {"error": "project_id required for archive"}
             try:
-                resp = await api_put(f"pm/projects/{project_id}/archive")
+                resp = await api_post(f"pm/projects/{project_id}/archive")
                 if resp.status_code == 204:
                     return {"success": True, "message": "Project archived"}
                 resp.raise_for_status()
-                return resp.json()
+                return {"success": True, "message": "Project archived"}
             except Exception as e:
                 return handle_error(e, "archive project")
 
@@ -227,11 +230,11 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             if not project_id:
                 return {"error": "project_id required for restore"}
             try:
-                resp = await api_put(f"pm/projects/{project_id}/restore")
+                resp = await api_post(f"pm/projects/{project_id}/restore")
                 if resp.status_code == 204:
                     return {"success": True, "message": "Project restored"}
                 resp.raise_for_status()
-                return resp.json()
+                return {"success": True, "message": "Project restored"}
             except Exception as e:
                 return handle_error(e, "restore project")
 
@@ -242,7 +245,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             try:
                 resp = await api_post(
                     f"pm/projects/{project_id}/members",
-                    json={"member_ids": member_ids},
+                    json={"members": member_ids},
                 )
                 resp.raise_for_status()
                 return resp.json()
@@ -254,7 +257,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             if not project_id:
                 return {"error": "project_id required for list_members"}
             try:
-                resp = await api_get(f"pm/projects/{project_id}/members")
+                resp = await api_get(f"pm/projects/{project_id}/memberships")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -262,12 +265,12 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- create_association ----------
         if action == "create_association":
-            if not project_id or not associations:
-                return {"error": "project_id and associations required for create_association"}
+            if not project_id or not module_name or not association_ids:
+                return {"error": "project_id, module_name, and association_ids required for create_association"}
             try:
                 resp = await api_post(
-                    f"pm/projects/{project_id}/associations",
-                    json={"associations": associations},
+                    f"pm/projects/{project_id}/{module_name}",
+                    json={"ids": association_ids},
                 )
                 resp.raise_for_status()
                 return resp.json()
@@ -276,10 +279,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- list_associations ----------
         if action == "list_associations":
-            if not project_id:
-                return {"error": "project_id required for list_associations"}
+            if not project_id or not module_name:
+                return {"error": "project_id and module_name required for list_associations"}
             try:
-                resp = await api_get(f"pm/projects/{project_id}/associations")
+                resp = await api_get(f"pm/projects/{project_id}/{module_name}")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -287,10 +290,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- delete_association ----------
         if action == "delete_association":
-            if not project_id or not association_id:
-                return {"error": "project_id and association_id required for delete_association"}
+            if not project_id or not module_name or not association_id:
+                return {"error": "project_id, module_name, and association_id required for delete_association"}
             try:
-                resp = await api_delete(f"pm/projects/{project_id}/associations/{association_id}")
+                resp = await api_delete(f"pm/projects/{project_id}/{module_name}/{association_id}")
                 if resp.status_code == 204:
                     return {"success": True, "message": "Association deleted"}
                 return {"error": f"Unexpected status {resp.status_code}"}
@@ -340,6 +343,8 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
         sprint_id: Optional[int] = None,
         parent_id: Optional[int] = None,
         custom_fields: Optional[Dict[str, Any]] = None,
+        # filter
+        query: Optional[str] = None,
         # pagination
         page: int = 1,
         per_page: int = 30,
@@ -354,7 +359,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             task_id: Required for get, update, delete
             title: Task title (create — MANDATORY)
             description: Task description
-            type_id: Task type ID
+            type_id: Task type ID (also required for get_type_fields)
             reporter_id: Reporter agent ID
             assignee_id: Assignee agent ID
             status_id: Task status ID
@@ -368,6 +373,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             sprint_id: Sprint ID
             parent_id: Parent task ID (for sub-tasks)
             custom_fields: Custom fields dict
+            query: Filter query string (filter action) — e.g. "priority_id: 1"
             page: Page number
             per_page: Items per page 1-100
         """
@@ -385,8 +391,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- get_type_fields ----------
         if action == "get_type_fields":
+            if not type_id:
+                return {"error": "type_id required for get_type_fields"}
             try:
-                resp = await api_get(f"{base}/task-type-fields")
+                resp = await api_get(f"{base}/task-types/{type_id}/fields")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -449,7 +457,9 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- filter ----------
         if action == "filter":
-            params = {"page": page, "per_page": per_page}
+            params: Dict[str, Any] = {"page": page}
+            if query:
+                params["query"] = f'"{query}"'
             try:
                 resp = await api_get(f"{base}/tasks/filter", params=params)
                 resp.raise_for_status()
@@ -571,7 +581,8 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
         task_id: int,
         note_id: Optional[int] = None,
         body: Optional[str] = None,
-        associations: Optional[List[Dict[str, Any]]] = None,
+        module_name: Optional[str] = None,
+        association_ids: Optional[List[int]] = None,
         association_id: Optional[int] = None,
         attachment_id: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -585,8 +596,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             task_id: The task ID
             note_id: Required for update_note, delete_note, delete_note_attachment
             body: Note body (create_note, update_note)
-            associations: List of association dicts (create_association)
-            association_id: Association ID (delete_association)
+            module_name: Association module — one of 'tickets', 'changes', 'problems',
+                         'assets', 'releases' (create/list/delete_association)
+            association_ids: List of IDs to associate (create_association)
+            association_id: Single association ID to remove (delete_association)
             attachment_id: Attachment ID (delete_task_attachment, delete_note_attachment)
         """
         action = action.lower().strip()
@@ -597,7 +610,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             if not body:
                 return {"error": "body required for create_note"}
             try:
-                resp = await api_post(f"{base}/notes", json={"body": body})
+                resp = await api_post(f"{base}/notes", json={"content": body})
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -617,7 +630,7 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
             if not note_id or not body:
                 return {"error": "note_id and body required for update_note"}
             try:
-                resp = await api_put(f"{base}/notes/{note_id}", json={"body": body})
+                resp = await api_put(f"{base}/notes/{note_id}", json={"content": body})
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -637,12 +650,12 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- create_association ----------
         if action == "create_association":
-            if not associations:
-                return {"error": "associations required for create_association"}
+            if not module_name or not association_ids:
+                return {"error": "module_name and association_ids required for create_association"}
             try:
                 resp = await api_post(
-                    f"{base}/associations",
-                    json={"associations": associations},
+                    f"{base}/{module_name}",
+                    json={"ids": association_ids},
                 )
                 resp.raise_for_status()
                 return resp.json()
@@ -651,8 +664,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- list_associations ----------
         if action == "list_associations":
+            if not module_name:
+                return {"error": "module_name required for list_associations"}
             try:
-                resp = await api_get(f"{base}/associations")
+                resp = await api_get(f"{base}/{module_name}")
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -660,10 +675,10 @@ def register_projects_tools(mcp) -> None:  # noqa: C901 – large by nature
 
         # ---------- delete_association ----------
         if action == "delete_association":
-            if not association_id:
-                return {"error": "association_id required for delete_association"}
+            if not module_name or not association_id:
+                return {"error": "module_name and association_id required for delete_association"}
             try:
-                resp = await api_delete(f"{base}/associations/{association_id}")
+                resp = await api_delete(f"{base}/{module_name}/{association_id}")
                 if resp.status_code == 204:
                     return {"success": True, "message": "Association deleted"}
                 return {"error": f"Unexpected status {resp.status_code}"}
