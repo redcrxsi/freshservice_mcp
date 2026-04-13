@@ -34,6 +34,8 @@ A powerful MCP (Model Context Protocol) server implementation that seamlessly in
 - Assets / CMDB
 - Asset Relationships
 - Asset Types
+- Projects
+- Journeys
 
 ## Components & Tools
 
@@ -116,6 +118,34 @@ When using `get_changes` or `filter_changes` with the `query` parameter, **the q
 | ---- | ----------- | -------------- |
 | `get_asset_types` | List all asset types | `page`, `per_page` |
 | `get_asset_type_by_id` | View a specific asset type | `asset_type_id` |
+
+### Project Management
+
+| Tool | Description | Key Parameters |
+| ---- | ----------- | -------------- |
+| `manage_project` | CRUD, archive/restore, members, associations, fields/templates | `action`, `project_id`, `name`, `project_type` |
+| `manage_project_task` | CRUD, list, filter, types/fields/priorities/statuses/versions/sprints | `action`, `project_id`, `task_id`, `title` |
+| `manage_project_task_detail` | Notes CRUD, associations, attachment deletion | `action`, `project_id`, `task_id` |
+
+### Journey Management
+
+| Tool | Description | Key Parameters |
+| ---- | ----------- | -------------- |
+| `manage_journey_config` | List published journey configs, get initiator form data-fields | `action`, `config_id`, `page` |
+| `manage_journey_request` | Create, view, list, filter, update, cancel, delete journey requests; list activities | `action`, `request_id`, `journey_id`, `initiator_data`, `filter_attributes` |
+
+**Journey Request Status Values:**
+- `1` = In Progress, `2` = Completed, `3` = Failed, `5` = Cancelled, `8` = Expired
+
+**Filter Action Example:**
+```json
+{
+  "filter_attributes": [
+    {"field": "status", "operator": "is_in", "value": [2]},
+    {"field": "journey_id", "operator": "is_in", "value": [1]}
+  ]
+}
+```
 
 ## Getting Started
 

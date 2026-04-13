@@ -6,6 +6,7 @@ Each sub-module exposes a ``register_*_tools(mcp)`` function.
 from .agents import register_agents_tools
 from .assets import register_assets_tools
 from .changes import register_changes_tools
+from .journeys import register_journeys_tools
 from .misc import register_misc_tools
 from .products import register_products_tools
 from .projects import register_projects_tools
@@ -24,6 +25,7 @@ SCOPE_REGISTRY: dict[str, callable] = {
     "solutions": register_solutions_tools,
     "products": register_products_tools,
     "projects": register_projects_tools,
+    "journeys": register_journeys_tools,
     "misc": register_misc_tools,
 }
 
@@ -32,6 +34,7 @@ __all__ = [
     "register_agents_tools",
     "register_assets_tools",
     "register_changes_tools",
+    "register_journeys_tools",
     "register_misc_tools",
     "register_products_tools",
     "register_projects_tools",

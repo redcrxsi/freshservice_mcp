@@ -112,6 +112,13 @@ class ProjectVisibility(IntEnum):
     PRIVATE = 0
     PUBLIC = 1
 
+class JourneyRequestStatus(IntEnum):
+    IN_PROGRESS = 1
+    COMPLETED = 2
+    FAILED = 3
+    CANCELLED = 5
+    EXPIRED = 8
+
 # All available scopes for --scope flag
 AVAILABLE_SCOPES = [
     "tickets",
@@ -123,6 +130,7 @@ AVAILABLE_SCOPES = [
     "solutions",
     "products",
     "projects",
+    "journeys",
     "service_catalog",
     "canned_responses",
     "workspaces",

@@ -341,6 +341,175 @@ async def test_publish_solution_article():
     result = await publish_solution_article(article_id)
     print(result)
 
+# ---------------------------------------------------------------------------
+# Journey tests — read-only (safe to run against live instance)
+# ---------------------------------------------------------------------------
+
+async def test_journey_list_configs():
+    """List all published journey configs."""
+    from freshservice_mcp.tools.journeys import register_journeys_tools
+    from freshservice_mcp.http_client import api_get
+    resp = await api_get("journeys/configs", params={"page": 1})
+    resp.raise_for_status()
+    data = resp.json()
+    print("=== Journey Configs ===")
+    print(data)
+    return data
+
+async def test_journey_get_data_fields(config_id: int):
+    """Get initiator form data-fields for a given journey config."""
+    from freshservice_mcp.http_client import api_get
+    resp = await api_get(f"journeys/configs/{config_id}/data-fields")
+    resp.raise_for_status()
+    data = resp.json()
+    print(f"=== Data Fields for config {config_id} ===")
+    print(data)
+    return data
+
+async def test_journey_list_requests():
+    """List journey requests (filter=all, per_page=5)."""
+    from freshservice_mcp.http_client import api_get
+    resp = await api_get("journeys/requests", params={"filter": "all", "per_page": 5, "page": 1})
+    resp.raise_for_status()
+    data = resp.json()
+    print("=== Journey Requests (all, first 5) ===")
+    print(data)
+    return data
+
+async def test_journey_filter_requests():
+    """Filter journey requests — completed status (2)."""
+    from freshservice_mcp.http_client import api_post
+    body = {
+        "data": {
+            "query": {
+                "filter": [
+                    {
+                        "attributes": [
+                            {"field": "status", "operator": "is_in", "value": [2]}
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+    resp = await api_post("journeys/requests/view", json=body)
+    resp.raise_for_status()
+    data = resp.json()
+    print("=== Filtered Journey Requests (completed) ===")
+    print(data)
+    return data
+
+async def test_journey_get_request(request_id: int):
+    """Get a single journey request by ID."""
+    from freshservice_mcp.http_client import api_get
+    resp = await api_get(f"journeys/requests/{request_id}")
+    resp.raise_for_status()
+    data = resp.json()
+    print(f"=== Journey Request {request_id} ===")
+    print(data)
+    return data
+
+async def test_journey_list_activities(request_id: int):
+    """List activities for a journey request."""
+    from freshservice_mcp.http_client import api_get
+    resp = await api_get(f"journeys/requests/{request_id}/activities")
+    resp.raise_for_status()
+    data = resp.json()
+    print(f"=== Activities for request {request_id} ===")
+    print(data)
+    return data
+
+async def test_journey_read_only_suite():
+    """Run all read-only journey tests in sequence."""
+    print("\n--- 1. List configs ---")
+    configs = await test_journey_list_configs()
+
+    # Pick first config id for data-fields test
+    journey_configs = configs.get("journey_configs", [])
+    if journey_configs:
+        cid = journey_configs[0]["id"]
+        print(f"\n--- 2. Get data-fields for config {cid} ---")
+        await test_journey_get_data_fields(cid)
+
+    print("\n--- 3. List requests (all) ---")
+    requests_data = await test_journey_list_requests()
+
+    print("\n--- 4. Filter requests (completed) ---")
+    await test_journey_filter_requests()
+
+    # Pick first request id for get + activities
+    journey_requests = requests_data.get("journey_requests", [])
+    if journey_requests:
+        rid = journey_requests[0]["id"]
+        print(f"\n--- 5. Get request {rid} ---")
+        await test_journey_get_request(rid)
+        print(f"\n--- 6. List activities for request {rid} ---")
+        await test_journey_list_activities(rid)
+
+    print("\n=== Read-only journey test suite complete ===")
+
+
+# ---------------------------------------------------------------------------
+# Journey tests — DESTRUCTIVE — requires test journey_id
+# Do NOT run automatically. Confirm journey_id with user first.
+# ---------------------------------------------------------------------------
+
+async def test_journey_write_suite(journey_id: int, initiator_data: dict):
+    """Run create -> get -> update -> cancel -> delete sequence.
+
+    Args:
+        journey_id: A test/sandbox journey config ID (NOT production).
+        initiator_data: Dict matching the journey's initiator form, e.g.
+            {"request_for": "test@example.com", "custom_fields": {"cf_text": "MCP-TEST"}}
+    """
+    import time
+    from freshservice_mcp.http_client import api_post, api_get, api_patch, api_put, api_delete
+
+    tag = f"MCP-TEST-{int(time.time())}"
+    print(f"\n=== WRITE SUITE (tag={tag}) ===")
+
+    # -- create --
+    print("\n--- create ---")
+    create_body = {"journey_id": journey_id, "initiator_data": initiator_data}
+    resp = await api_post("journeys/requests", json=create_body)
+    resp.raise_for_status()
+    created = resp.json()
+    print(created)
+    req = created.get("journey_request", created)
+    request_id = req["id"]
+    print(f"Created request_id={request_id}")
+
+    # -- get (verify) --
+    print(f"\n--- get {request_id} ---")
+    resp = await api_get(f"journeys/requests/{request_id}")
+    resp.raise_for_status()
+    print(resp.json())
+
+    # -- update --
+    print(f"\n--- update {request_id} ---")
+    update_body = {"initiator_data": {"custom_fields": {"cf_text": f"{tag}-UPDATED"}}}
+    resp = await api_patch(f"journeys/requests/{request_id}", json=update_body)
+    resp.raise_for_status()
+    print(resp.json())
+
+    # -- cancel --
+    print(f"\n--- cancel {request_id} ---")
+    resp = await api_put(f"journeys/requests/{request_id}/cancel")
+    resp.raise_for_status()
+    print(resp.json())
+
+    # -- delete --
+    print(f"\n--- delete {request_id} ---")
+    resp = await api_delete(f"journeys/requests/{request_id}")
+    print(f"Status: {resp.status_code}")
+    if resp.status_code == 204:
+        print("Deleted successfully")
+    else:
+        print(resp.text)
+
+    print("\n=== Write suite complete ===")
+
+
 if __name__ == "__main__":
     # asyncio.run(test_create_ticket())
     # asyncio.run(test_update_ticket())
@@ -394,6 +563,16 @@ if __name__ == "__main__":
     # asyncio.run(test_filter_agents())
     # asyncio.run(test_publish_solution_article())
     # asyncio.run(test_add_requester_to_group())
+    #
+    # --- Journey tests (read-only) ---
+    # asyncio.run(test_journey_read_only_suite())
+    #
+    # --- Journey tests (DESTRUCTIVE — confirm journey_id first!) ---
+    # asyncio.run(test_journey_write_suite(
+    #     journey_id=<SAFE_TEST_JOURNEY_ID>,
+    #     initiator_data={"request_for": "mcp-test@example.com",
+    #                      "custom_fields": {"cf_text": "MCP-TEST"}}
+    # ))
     
     
     

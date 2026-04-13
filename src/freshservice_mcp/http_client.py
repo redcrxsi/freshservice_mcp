@@ -15,6 +15,13 @@ def get_auth_headers() -> Dict[str, str]:
     }
 
 
+def get_auth_only_headers() -> Dict[str, str]:
+    """Return Basic-auth header only (no Content-Type — used for multipart)."""
+    return {
+        "Authorization": f"Basic {base64.b64encode(f'{FRESHSERVICE_APIKEY}:X'.encode()).decode()}",
+    }
+
+
 def parse_link_header(link_header: str) -> Dict[str, Optional[int]]:
     """Parse the HTTP Link header to extract pagination page numbers."""
     pagination: Dict[str, Optional[int]] = {"next": None, "prev": None}
@@ -51,6 +58,49 @@ async def api_put(path: str, json: Optional[Dict[str, Any]] = None) -> httpx.Res
     """Perform an authenticated PUT request."""
     async with httpx.AsyncClient() as client:
         return await client.put(api_url(path), headers=get_auth_headers(), json=json)
+
+
+async def api_post_multipart(
+    path: str,
+    data: list[tuple[str, str]],
+    files: list[tuple[str, tuple[str, bytes, str]]],
+) -> httpx.Response:
+    """Perform an authenticated multipart/form-data POST request.
+
+    *data* items become text parts via (None, value) tuples and *files*
+    items stay as file parts.  Everything is merged into a single ``files``
+    list so httpx builds one multipart body (avoids the sync-request error
+    that occurs when mixing ``data`` + ``files`` on AsyncClient).
+    """
+    merged: list[tuple[str, Any]] = [(k, (None, v)) for k, v in data]
+    merged.extend(files)
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        return await client.post(
+            api_url(path), headers=get_auth_only_headers(), files=merged,
+        )
+
+
+async def api_put_multipart(
+    path: str,
+    data: list[tuple[str, str]],
+    files: list[tuple[str, tuple[str, bytes, str]]],
+) -> httpx.Response:
+    """Perform an authenticated multipart/form-data PUT request.
+
+    See :func:`api_post_multipart` for why we merge *data* into *files*.
+    """
+    merged: list[tuple[str, Any]] = [(k, (None, v)) for k, v in data]
+    merged.extend(files)
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        return await client.put(
+            api_url(path), headers=get_auth_only_headers(), files=merged,
+        )
+
+
+async def api_patch(path: str, json: Optional[Dict[str, Any]] = None) -> httpx.Response:
+    """Perform an authenticated PATCH request."""
+    async with httpx.AsyncClient() as client:
+        return await client.patch(api_url(path), headers=get_auth_headers(), json=json)
 
 
 async def api_delete(path: str) -> httpx.Response:
