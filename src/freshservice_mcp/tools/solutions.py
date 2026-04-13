@@ -3,9 +3,13 @@
 Exposes 1 tool instead of the original 13:
   • manage_solution — categories, folders, articles CRUD
 """
+import mimetypes
+import os
 from typing import Any, Dict, List, Optional
 
-from ..http_client import api_get, api_post, api_put, handle_error
+from ..http_client import (
+    api_get, api_post, api_put, api_post_multipart, api_put_multipart, handle_error,
+)
 
 
 def register_solutions_tools(mcp) -> None:
@@ -31,6 +35,7 @@ def register_solutions_tools(mcp) -> None:
         tags: Optional[List[str]] = None,
         keywords: Optional[List[str]] = None,
         review_date: Optional[str] = None,
+        attachments: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Unified solution operations for categories, folders, and articles.
 
@@ -55,6 +60,9 @@ def register_solutions_tools(mcp) -> None:
             tags: Article tags list
             keywords: SEO keywords list
             review_date: ISO date for article review
+            attachments: List of absolute file paths to attach (create/update article).
+                When provided, the request uses multipart/form-data instead of JSON.
+                Total attachment size must not exceed 40 MB.
         """
         action = action.lower().strip()
 
@@ -190,42 +198,111 @@ def register_solutions_tools(mcp) -> None:
         if action == "create_article":
             if not title or not description or not folder_id:
                 return {"error": "title, description and folder_id required for create_article"}
-            data: Dict[str, Any] = {
-                "title": title,
-                "description": description,
-                "folder_id": folder_id,
-                "article_type": article_type or 1,
-                "status": status or 1,
-            }
-            for k, v in [("tags", tags), ("keywords", keywords),
-                         ("review_date", review_date)]:
-                if v is not None:
-                    data[k] = v
-            try:
-                resp = await api_post("solutions/articles", json=data)
-                resp.raise_for_status()
-                return {"success": True, "article": resp.json()}
-            except Exception as e:
-                return handle_error(e, "create solution article")
+
+            if attachments:
+                # Multipart/form-data mode for file attachments
+                form_data: list[tuple[str, str]] = [
+                    ("title", title),
+                    ("description", description),
+                    ("folder_id", str(folder_id)),
+                    ("article_type", str(article_type or 1)),
+                    ("status", str(status or 1)),
+                ]
+                if tags:
+                    for tag in tags:
+                        form_data.append(("tags[]", tag))
+                if keywords:
+                    for kw in keywords:
+                        form_data.append(("keywords[]", kw))
+                if review_date:
+                    form_data.append(("review_date", review_date))
+                files: list[tuple[str, tuple[str, bytes, str]]] = []
+                for filepath in attachments:
+                    if not os.path.isfile(filepath):
+                        return {"error": f"Attachment file not found: {filepath}"}
+                    filename = os.path.basename(filepath)
+                    mime = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
+                    with open(filepath, "rb") as f:
+                        files.append(("attachments[]", (filename, f.read(), mime)))
+                try:
+                    resp = await api_post_multipart("solutions/articles", data=form_data, files=files)
+                    resp.raise_for_status()
+                    return {"success": True, "article": resp.json()}
+                except Exception as e:
+                    return handle_error(e, "create solution article with attachments")
+            else:
+                # Standard JSON mode (no attachments)
+                data: Dict[str, Any] = {
+                    "title": title,
+                    "description": description,
+                    "folder_id": folder_id,
+                    "article_type": article_type or 1,
+                    "status": status or 1,
+                }
+                for k, v in [("tags", tags), ("keywords", keywords),
+                             ("review_date", review_date)]:
+                    if v is not None:
+                        data[k] = v
+                try:
+                    resp = await api_post("solutions/articles", json=data)
+                    resp.raise_for_status()
+                    return {"success": True, "article": resp.json()}
+                except Exception as e:
+                    return handle_error(e, "create solution article")
 
         if action == "update_article":
             if not article_id:
                 return {"error": "article_id required for update_article"}
-            data: Dict[str, Any] = {}
-            for k, v in [("title", title), ("description", description),
-                         ("folder_id", folder_id), ("article_type", article_type),
-                         ("status", status), ("tags", tags), ("keywords", keywords),
-                         ("review_date", review_date)]:
-                if v is not None:
-                    data[k] = v
-            if not data:
-                return {"error": "No fields provided for update"}
-            try:
-                resp = await api_put(f"solutions/articles/{article_id}", json=data)
-                resp.raise_for_status()
-                return {"success": True, "article": resp.json()}
-            except Exception as e:
-                return handle_error(e, "update solution article")
+
+            if attachments:
+                # Multipart/form-data mode for file attachments
+                form_data: list[tuple[str, str]] = []
+                for k, v in [("title", title), ("description", description),
+                             ("article_type", article_type), ("folder_id", folder_id),
+                             ("status", status), ("review_date", review_date)]:
+                    if v is not None:
+                        form_data.append((k, str(v)))
+                if tags:
+                    for tag in tags:
+                        form_data.append(("tags[]", tag))
+                if keywords:
+                    for kw in keywords:
+                        form_data.append(("keywords[]", kw))
+                files: list[tuple[str, tuple[str, bytes, str]]] = []
+                for filepath in attachments:
+                    if not os.path.isfile(filepath):
+                        return {"error": f"Attachment file not found: {filepath}"}
+                    filename = os.path.basename(filepath)
+                    mime = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
+                    with open(filepath, "rb") as f:
+                        files.append(("attachments[]", (filename, f.read(), mime)))
+                if not form_data and not files:
+                    return {"error": "No fields provided for update"}
+                try:
+                    resp = await api_put_multipart(
+                        f"solutions/articles/{article_id}", data=form_data, files=files,
+                    )
+                    resp.raise_for_status()
+                    return {"success": True, "article": resp.json()}
+                except Exception as e:
+                    return handle_error(e, "update solution article with attachments")
+            else:
+                # Standard JSON mode (no attachments)
+                data: Dict[str, Any] = {}
+                for k, v in [("title", title), ("description", description),
+                             ("folder_id", folder_id), ("article_type", article_type),
+                             ("status", status), ("tags", tags), ("keywords", keywords),
+                             ("review_date", review_date)]:
+                    if v is not None:
+                        data[k] = v
+                if not data:
+                    return {"error": "No fields provided for update"}
+                try:
+                    resp = await api_put(f"solutions/articles/{article_id}", json=data)
+                    resp.raise_for_status()
+                    return {"success": True, "article": resp.json()}
+                except Exception as e:
+                    return handle_error(e, "update solution article")
 
         if action == "publish_article":
             if not article_id:
