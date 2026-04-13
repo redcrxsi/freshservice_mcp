@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FreshService MCP is a Python 3.13+ MCP (Model Context Protocol) server that integrates AI models with Freshservice's ITSM platform. It uses FastMCP with async httpx for the Freshservice REST API v2. Originally 115+ individual tools were consolidated into 23 unified, action-based tools to stay under VS Code Copilot's 128-tool limit.
+FreshService MCP is a Python 3.13+ MCP (Model Context Protocol) server that integrates AI models with Freshservice's ITSM platform. It uses FastMCP with async httpx for the Freshservice REST API v2. Originally 115+ individual tools were consolidated into 24 unified, action-based tools to stay under VS Code Copilot's 128-tool limit.
 
 ## Development Commands
 

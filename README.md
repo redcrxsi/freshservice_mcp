@@ -13,139 +13,87 @@ A powerful MCP (Model Context Protocol) server implementation that seamlessly in
 - **Automated ITSM Management**: Efficiently handle ticket creation, updates, responses, and asset management
 - **Workflow Acceleration**: Reduce manual intervention in routine IT service tasks
 
-## Supported Freshservice Modules
-
-**This MCP server currently supports operations across a wide range of Freshservice modules**:
-
-- Tickets
-- Changes
-- Conversations
-- Products
-- Requesters
-- Agents
-- Agent Groups
-- Requester Groups
-- Canned Responses
-- Canned Response Folders
-- Workspaces
-- Solution Categories
-- Solution Folders
-- Solution Articles
-- Assets / CMDB
-- Asset Relationships
-- Asset Types
-- Projects
-- Journeys
-
 ## Components & Tools
 
-The server provides a comprehensive toolkit for Freshservice operations:
+The server consolidates 115+ Freshservice API endpoints into **24 action-based tools** across 10 scopes. Each tool accepts an `action` parameter that dispatches to the relevant operation.
 
 ### Ticket Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `create_ticket` | Create new service tickets | `subject`, `description`, `source`, `priority`, `status`, `email` |
-| `update_ticket` | Update existing tickets | `ticket_id`, `updates` |
-| `delete_ticket` | Remove tickets | `ticket_id` |
-| `filter_tickets` | Find tickets matching criteria | `query` |
-| `get_ticket_fields` | Retrieve ticket field definitions | None |
-| `get_tickets` | List all tickets with pagination | `page`, `per_page` |
-| `get_ticket_by_id` | Retrieve single ticket details | `ticket_id` |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_ticket` | create, update, delete, get, list, filter, get_fields | Unified ticket CRUD, filtering, and field discovery |
+| `manage_ticket_conversation` | reply, add_note, update, list | Manage ticket replies and notes |
+| `manage_service_catalog` | list_items, get_requested_items, place_request | Browse and order from the service catalog |
 
 ### Change Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `get_changes` | List all changes with pagination | `page`, `per_page`, `query` |
-| `filter_changes` | Filter changes with advanced queries | `query`, `page`, `per_page` |
-| `get_change_by_id` | Retrieve single change details | `change_id` |
-| `create_change` | Create new change request | `requester_id`, `subject`, `description`, `priority`, `impact`, `status`, `risk`, `change_type` |
-| `update_change` | Update existing change | `change_id`, `change_fields` |
-| `close_change` | Close change with result explanation | `change_id`, `change_result_explanation` |
-| `delete_change` | Remove change | `change_id` |
-| `get_change_tasks` | Get tasks for a change | `change_id` |
-| `create_change_note` | Add note to change | `change_id`, `body` |
-
-#### 🚨 Important: Query Syntax for Filtering
-
-When using `get_changes` or `filter_changes` with the `query` parameter, **the query string must be wrapped in double quotes** for the Freshservice API to work correctly:
-
-✅ **CORRECT**: `"status:3"`, `"approval_status:1 AND status:<6"`
-❌ **WRONG**: `status:3` (will cause 500 Internal Server Error)
-
-**Common Query Examples:**
-
-- `"status:3"` - Changes awaiting approval
-- `"approval_status:1"` - Approved changes
-- `"approval_status:1 AND status:<6"` - Approved changes that are not closed
-- `"planned_start_date:>'2025-07-14'"` - Changes starting after specific date
-- `"status:3 AND priority:1"` - High priority changes awaiting approval
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_change` | create, update, delete, get, list, filter, close, move, get_fields | Unified change CRUD, filtering, close, and workspace move |
+| `manage_change_note` | create, view, list, update, delete | Notes on a change |
+| `manage_change_task` | create, view, list, update, delete | Tasks on a change |
+| `manage_change_time_entry` | create, view, list, update, delete | Time entries on a change |
+| `manage_change_approval` | list_groups, create_group, update_group, cancel_group, list, view, remind, cancel, set_chain_rule | Approval groups and individual approvals |
 
 ### Asset / CMDB Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `get_assets` | List all assets with pagination | `page`, `per_page`, `include`, `order_by`, `order_type`, `trashed`, `workspace_id` |
-| `get_asset_by_id` | Retrieve single asset details | `display_id`, `include` |
-| `create_asset` | Create a new asset | `name`, `asset_type_id`, `impact`, `usage_type`, `description`, `type_fields` |
-| `update_asset` | Update an existing asset | `display_id`, `asset_fields` |
-| `delete_asset` | Delete (trash) an asset | `display_id` |
-| `delete_asset_permanently` | Permanently delete a trashed asset | `display_id` |
-| `restore_asset` | Restore a trashed asset | `display_id` |
-| `search_assets` | Search assets by attributes | `search_query`, `page`, `trashed` |
-| `filter_assets` | Filter assets with advanced queries | `filter_query`, `page`, `include` |
-| `move_asset` | Move asset to another workspace | `display_id`, `workspace_id`, `agent_id`, `group_id` |
-| `get_asset_components` | List hardware components | `display_id` |
-| `get_asset_assignment_history` | View user assignment history | `display_id` |
-| `get_asset_requests` | List associated tickets | `display_id` |
-| `get_asset_contracts` | List associated contracts | `display_id` |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_asset` | create, update, delete, delete_permanently, restore, get, list, search, filter, move, get_types, get_type | Unified asset CRUD, search, filter, and asset type discovery |
+| `manage_asset_details` | components, assignment_history, requests, contracts | Retrieve asset sub-resources (hardware components, history, linked tickets/contracts) |
+| `manage_asset_relationship` | list_for_asset, list_all, get, create, delete, get_types, job_status | Manage relationships between assets |
 
-### Asset Relationships
+### Agent & Requester Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `get_asset_relationships` | List relationships for an asset | `display_id` |
-| `get_all_relationships` | List all relationships | `page`, `per_page` |
-| `get_relationship_by_id` | View a specific relationship | `relationship_id` |
-| `create_asset_relationships` | Create relationships in bulk | `relationships` |
-| `delete_asset_relationships` | Delete relationships in bulk | `relationship_ids` |
-| `get_relationship_types` | List available relationship types | None |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_agent` | create, update, get, list, filter, get_fields | Agent CRUD with filtering and field discovery |
+| `manage_agent_group` | create, update, get, list | Agent group management |
+| `manage_requester` | create, update, get, list, filter, get_fields, add_to_group | Requester CRUD with filtering and group membership |
+| `manage_requester_group` | create, update, get, list, list_members | Requester group management |
 
-### Asset Types
+### Solutions (Knowledge Base)
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `get_asset_types` | List all asset types | `page`, `per_page` |
-| `get_asset_type_by_id` | View a specific asset type | `asset_type_id` |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_solution` | list_categories, get_category, create_category, update_category, list_folders, get_folder, create_folder, update_folder, list_articles, get_article, create_article, update_article, publish_article | Full knowledge base management with file attachment support |
+
+### Products
+
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_product` | create, update, get, list | Product CRUD |
 
 ### Project Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `manage_project` | CRUD, archive/restore, members, associations, fields/templates | `action`, `project_id`, `name`, `project_type` |
-| `manage_project_task` | CRUD, list, filter, types/fields/priorities/statuses/versions/sprints | `action`, `project_id`, `task_id`, `title` |
-| `manage_project_task_detail` | Notes CRUD, associations, attachment deletion | `action`, `project_id`, `task_id` |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_project` | create, update, delete, get, list, archive, restore, get_fields, get_templates, add_members, list_members, create_association, list_associations, delete_association, delete_attachment | Full project lifecycle management |
+| `manage_project_task` | create, update, delete, get, list, filter, get_types, get_type_fields, get_priorities, get_statuses, get_versions, get_sprints | Project task management with metadata discovery |
+| `manage_project_task_detail` | create_note, list_notes, update_note, delete_note, create_association, list_associations, delete_association, delete_task_attachment, delete_note_attachment | Task notes, associations, and attachments |
 
 ### Journey Management
 
-| Tool | Description | Key Parameters |
-| ---- | ----------- | -------------- |
-| `manage_journey_config` | List published journey configs, get initiator form data-fields | `action`, `config_id`, `page` |
-| `manage_journey_request` | Create, view, list, filter, update, cancel, delete journey requests; list activities | `action`, `request_id`, `journey_id`, `initiator_data`, `filter_attributes` |
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_journey_config` | list, get_data_fields | List published journey configs and retrieve initiator form fields |
+| `manage_journey_request` | create, get, list, filter, update, cancel, delete, list_activities | Full journey request lifecycle including activity tracking |
 
-**Journey Request Status Values:**
-- `1` = In Progress, `2` = Completed, `3` = Failed, `5` = Cancelled, `8` = Expired
+**Journey Request Status Values:** 1=In Progress, 2=Completed, 3=Failed, 5=Cancelled, 8=Expired
 
-**Filter Action Example:**
-```json
-{
-  "filter_attributes": [
-    {"field": "status", "operator": "is_in", "value": [2]},
-    {"field": "journey_id", "operator": "is_in", "value": [1]}
-  ]
-}
-```
+### Canned Responses & Workspaces
+
+| Tool | Actions | Description |
+| ---- | ------- | ----------- |
+| `manage_canned_response` | list, get, list_folders, get_folder | Browse canned responses and folders |
+| `manage_workspace` | list, get | View workspaces |
+
+### Query Syntax for Filtering
+
+When using filter actions with a `query` parameter, **the query string must be wrapped in double quotes** for the Freshservice API to work correctly:
+
+- **CORRECT**: `"status:3"`, `"approval_status:1 AND status:<6"`
+- **WRONG**: `status:3` (will cause 500 Internal Server Error)
 
 ## Getting Started
 
